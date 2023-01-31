@@ -1,0 +1,109 @@
+debug: false
+overwrite: false
+validation_interval: 3
+ndim: 3
+run_id: runs/binary
+out_dir: output
+model_dir: models
+log_dir: logs
+seed: 42
+device: cuda:0
+data:
+  batch_size: 1
+  data_dir: /workspace/bone-tumor/data/resampled/
+  train_csv: /workspace/bone-tumor/data/resampled/osteosarcoma_train.csv
+  valid_csv: /workspace/bone-tumor/data/resampled/osteosarcoma_valid.csv
+  test_csv: /workspace/bone-tumor/data/resampled/osteosarcoma_test.csv
+  image_cols: [image]
+  label_cols: [label]
+  train: true
+  valid: true
+  test: false
+  dataset_type: persistent
+  cache_dir: /workspace/sarcoma-cache-unet-large/
+loss:
+  DiceLoss:
+    include_background: false
+    softmax: true
+    to_onehot_y: true
+lr_scheduler:
+  OneCycleLR:
+    max_lr: 0.0003
+model:
+  UNet: 
+    act: RELU
+    channels: [64, 128, 256, 512, 1024]
+    dropout: 0.1
+    norm: INSTANCE
+    num_res_units: 8
+    out_channels: 2
+    strides: [2, 2, 2, 2]
+optimizer:
+  Adam:
+    lr: 0.00010438011574266332
+    weight_decay: 0.0024362291008969065
+training:
+  early_stopping_patience: 125
+  max_epochs: 200
+transforms:
+  base:
+    LoadImaged:
+      keys: [image, label]
+    Spacingd: 
+      keys: [image, label]
+      pixdim: [1, 1, 1]
+      mode: [bilinear, nearest]
+    EnsureChannelFirstd:
+      keys: [image, label]
+    ScaleIntensityd:
+      keys: image
+      minv: 0
+      maxv: 1
+    NormalizeIntensityd:
+      keys: image
+    MapLabelValued:
+      keys: label
+      orig_labels: [1, 2]
+      target_labels: [0, 1]
+  train:
+    RandAdjustContrastd:
+      keys: image
+      gamma: 2.0
+    RandScaleIntensityd:
+      keys: image
+      factors: [-0.5, 0.5]
+    RandBiasFieldd:
+      keys: image
+    RandGibbsNoised:
+      keys: image
+      alpha: [0.2, 0.5]
+    RandAffined:
+      shear_range: [0.5, 0.5]
+      rotate_range: 10
+      scale_range: [-0.1, 0.1]
+      mode: [bilinear, nearest]
+    RandSpatialCropSamplesd: 
+      num_samples: 16
+      roi_size: [96, 96, 96]
+      random_size: false
+    #RandCropByPosNegLabeld:
+      #label_key: label
+      #spatial_size: [64, 64, 64]
+      #num_samples: 16
+      #allow_smaller: True
+    Resized:
+      mode: [trilinear, nearest]
+      spatial_size: [96, 96, 96]
+  valid:
+    CropForegroundd:
+      source_key: label
+      margin: 50
+  postprocessing:
+    KeepLargestConnectedComponentd:
+      keys: pred
+      applied_labels: 1
+      is_onehot: True
+  prob: 0.10
+patch:
+  transforms: /workspacebone-tumor/patch/transforms.py
+pushover_credentials: /workspace/.pushover_credentials.yaml
